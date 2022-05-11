@@ -1,23 +1,24 @@
-FROM golang:1-alpine as builder
+FROM lurenyang/alpine-golang as builder
 
-LABEL maintainer="lurenyang@outlook.com"
+ARG NAME=whoami
+
+ENV PATH=/usr/local/go/bin:$PATH
 
 RUN set -eux \
-    && sed -i s#dl-cdn.alpinelinux.org#mirror.tuna.tsinghua.edu.cn#g /etc/apk/repositories \
-    && apk --no-cache --no-progress add git tzdata make \
+    && apk --no-cache --no-progress add upx\
     && rm -rf /var/cache/apk/*
 
-WORKDIR /go/whoami
+WORKDIR /whoami
 
 COPY . .
 
-RUN make build
+RUN set -eux \
+    && CGO_ENABLED=0 go build -a --trimpath --ldflags="-s -w" -o ${NAME} \
+    && upx -9 -q ${NAME}
 
-# Create a minimal container to run a Golang static binary
 FROM scratch
 
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
-COPY --from=builder /go/whoami/whoami .
+COPY --from=builder /whoami/whoami .
 
 ENTRYPOINT ["/whoami"]
 EXPOSE 7080
